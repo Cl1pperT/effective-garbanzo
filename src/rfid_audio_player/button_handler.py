@@ -64,7 +64,8 @@ class ButtonControls:
         try:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             print(f"[{timestamp}] Button pressed: Play/Pause (GPIO {PIN_PLAY_PAUSE})")
-            self.audio_player.toggle_pause()
+            if self._press_allowed():
+                self.audio_player.toggle_pause()
         except Exception as e:
             print(f"❌ Error handling play/pause: {e}")
 
@@ -73,7 +74,8 @@ class ButtonControls:
         try:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             print(f"[{timestamp}] Button pressed: Volume Up (GPIO {PIN_VOL_UP})")
-            self.audio_player.volume_up()
+            if self._press_allowed():
+                self.audio_player.volume_up()
         except Exception as e:
             print(f"❌ Error handling volume up: {e}")
 
@@ -82,7 +84,8 @@ class ButtonControls:
         try:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             print(f"[{timestamp}] Button pressed: Volume Down (GPIO {PIN_VOL_DOWN})")
-            self.audio_player.volume_down()
+            if self._press_allowed():
+                self.audio_player.volume_down()
         except Exception as e:
             print(f"❌ Error handling volume down: {e}")
 
@@ -91,7 +94,8 @@ class ButtonControls:
         try:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             print(f"[{timestamp}] Button pressed: Next Track (GPIO {PIN_NEXT})")
-            self.audio_player.next_track()
+            if self._press_allowed():
+                self.audio_player.next_track()
         except Exception as e:
             print(f"❌ Error handling next track: {e}")
 
@@ -100,7 +104,8 @@ class ButtonControls:
         try:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             print(f"[{timestamp}] Button pressed: Previous Track (GPIO {PIN_PREV})")
-            self.audio_player.prev_track()
+            if self._press_allowed():
+                self.audio_player.prev_track()
         except Exception as e:
             print(f"❌ Error handling previous track: {e}")
 
@@ -115,3 +120,9 @@ class ButtonControls:
             print("✓ Button controls cleaned up.")
         except Exception as e:
             print(f"Warning: Error during button cleanup: {e}")
+
+    def _press_allowed(self):
+        if self.audio_player.parental_settings["buttons_locked"]:
+            print("🔒 Physical button press ignored (parental lock is on).")
+            return False
+        return True

@@ -72,28 +72,38 @@ if __name__ == "__main__":
         print("🎮 Button controls are active")
         print("🛑 Press Ctrl+C to exit")
         print("="*50 + "\n")
+        player.play_charm("ready", wait=True)
 
         # 4. Start the main application loop
         while True:
             # Check for a new RFID tag.
             # The reader.read_tag() method is smart and will
             # only return a UID once when a *new* tag is presented.
-            uid, text = reader.read_tag()
+            # Do not touch the RC522 while parental controls have disabled
+            # card reads. Web-based card writing remains available.
+            if player.parental_settings["rfid_locked"]:
+                uid, text = None, None
+            else:
+                uid, text = reader.read_tag()
             
             if uid is not None:
                 print(f"Main loop detected new UID: {uid}, text {text}")
                 if text is None:
                     print("No text found on tag.")
+                    player.play_charm("error")
                 else:
                     tag_text = text.strip()
                     if tag_text.upper() == "IP":
+                        player.play_charm("new_tag", wait=True)
                         _speak_ip_address(player)
                     else:
-                        player.load_playlist(tag_text)
+                        if not player.load_playlist(tag_text, play_tag_charm=True):
+                            player.play_charm("error")
             
             # Check if the current song has finished playing.
             # This is necessary for auto-playing the next track.
             player.check_for_song_end()
+            player.check_sleep_timer()
 
             # Poll every 100ms. This is idle time, preventing
             # the loop from using 100% CPU.

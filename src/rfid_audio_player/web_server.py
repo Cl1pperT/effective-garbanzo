@@ -1,31 +1,113 @@
 # web_server.py
-from flask import Flask, jsonify, request, send_from_directory
+from datetime import timedelta
+from functools import wraps
+from flask import Flask, jsonify, request, send_from_directory, session
 import os
 import threading
-import pygame
 import subprocess
 import shutil
+import time
 from .config import MEDIA_PATH, SUPPORTED_EXTENSIONS
+from .network_manager import NetworkManager, NetworkManagerError
+from .parental_auth import ParentalAuth
 
 class WebServer:
-    def __init__(self, audio_player, rfid_reader=None):
+    def __init__(self, audio_player, rfid_reader=None, network_manager=None, parental_auth=None):
         """Initialize the Flask web server with a reference to the AudioPlayer and optional RFID Reader."""
         self.audio_player = audio_player
         self.rfid_reader = rfid_reader
+        self.network_manager = network_manager or NetworkManager()
+        self.parental_auth = parental_auth or ParentalAuth()
+        self._auth_failures = {}
+        self._auth_failure_lock = threading.Lock()
         # Get the absolute path to the static folder (project root/static)
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
         static_folder = os.path.join(project_root, 'static')
         self.app = Flask(__name__, static_folder=static_folder, static_url_path='')
+        self.app.secret_key = self.parental_auth.session_secret
+        self.app.config.update(
+            PERMANENT_SESSION_LIFETIME=timedelta(minutes=15),
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE='Lax',
+        )
         self._setup_routes()
 
     def _setup_routes(self):
         """Set up all Flask routes."""
 
+        def parental_auth_error():
+            if not self.parental_auth.configured:
+                return jsonify({
+                        'error': (
+                            'Parental password is not configured. On the player, run '
+                            'python scripts/set-parental-password.py and restart the player.'
+                        ),
+                    'code': 'parental_password_not_configured',
+                }), 503
+            if not session.get('parent_authenticated'):
+                return jsonify({
+                    'error': 'Parental password required.',
+                    'code': 'parental_password_required',
+                }), 401
+            return None
+
+        def parental_login_required(handler):
+            @wraps(handler)
+            def protected_handler(*args, **kwargs):
+                error = parental_auth_error()
+                if error:
+                    return error
+                return handler(*args, **kwargs)
+            return protected_handler
+
         # Serve the main page
         @self.app.route('/')
         def index():
             return send_from_directory(self.app.static_folder, 'index.html')
+
+        @self.app.route('/api/parental-auth', methods=['GET'])
+        def parental_auth_status():
+            return jsonify({
+                'configured': self.parental_auth.configured,
+                'authenticated': bool(session.get('parent_authenticated')),
+            })
+
+        @self.app.route('/api/parental-auth/login', methods=['POST'])
+        def parental_auth_login():
+            if not self.parental_auth.configured:
+                return jsonify({
+                    'error': 'Parental password is not configured.',
+                    'code': 'parental_password_not_configured',
+                }), 503
+            client = request.remote_addr or 'unknown'
+            now = time.monotonic()
+            with self._auth_failure_lock:
+                attempts = [
+                    attempted_at for attempted_at in self._auth_failures.get(client, [])
+                    if now - attempted_at < 300
+                ]
+                self._auth_failures[client] = attempts
+                if len(attempts) >= 5:
+                    return jsonify({'error': 'Too many attempts. Try again in a few minutes.'}), 429
+
+            password = (request.get_json(silent=True) or {}).get('password')
+            if not self.parental_auth.verify(password):
+                session.pop('parent_authenticated', None)
+                with self._auth_failure_lock:
+                    self._auth_failures.setdefault(client, []).append(now)
+                return jsonify({'error': 'Incorrect parental password.'}), 401
+            with self._auth_failure_lock:
+                self._auth_failures.pop(client, None)
+            session.clear()
+            session.permanent = True
+            session['parent_authenticated'] = True
+            return jsonify({'success': True})
+
+        @self.app.route('/api/parental-auth/logout', methods=['POST'])
+        def parental_auth_logout():
+            session.clear()
+            return jsonify({'success': True})
 
         # Get current player status
         @self.app.route('/api/status', methods=['GET'])
@@ -41,13 +123,14 @@ class WebServer:
             return jsonify({
                 'playing': self.audio_player.playing,
                 'paused': self.audio_player.paused,
-                'volume': int(pygame.mixer.music.get_volume() * 100),
+                'volume': self.audio_player.get_volume(),
                 'current_track': current_track,
                 'track_index': self.audio_player.current_track_index + 1 if self.audio_player.current_track_index >= 0 else 0,
                 'total_tracks': len(self.audio_player.current_playlist),
                 'position_seconds': round(position_seconds, 3),
                 'duration_seconds': round(duration_seconds, 3),
                 'seek_supported': self.audio_player.seek_supported,
+                'max_volume': self.audio_player.parental_settings['max_volume'],
             })
 
         # Toggle play/pause
@@ -71,11 +154,63 @@ class WebServer:
         # Set volume (0-100)
         @self.app.route('/api/volume', methods=['POST'])
         def set_volume():
-            data = request.get_json()
+            data = request.get_json() or {}
             volume = data.get('volume', 50)
-            volume = max(0, min(100, volume))  # Clamp between 0-100
-            pygame.mixer.music.set_volume(volume / 100.0)
+            try:
+                volume = self.audio_player.set_volume(int(volume))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'volume must be a number'}), 400
             return jsonify({'success': True, 'volume': volume})
+
+        @self.app.route('/api/parental-controls', methods=['GET', 'POST'])
+        def parental_controls():
+            if request.method == 'GET':
+                return jsonify(self.audio_player.get_parental_status())
+            error = parental_auth_error()
+            if error:
+                return error
+            try:
+                return jsonify({
+                    'success': True,
+                    **self.audio_player.update_parental_settings(request.get_json() or {})
+                })
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Invalid parental control settings'}), 400
+            except OSError as exc:
+                return jsonify({'error': f'Unable to save settings: {exc}'}), 500
+
+        @self.app.route('/api/parental-controls/sleep-timer', methods=['POST'])
+        @parental_login_required
+        def sleep_timer():
+            try:
+                minutes = int((request.get_json() or {}).get('minutes', 0))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'minutes must be a number'}), 400
+            return jsonify({'success': True, **self.audio_player.set_sleep_timer(minutes)})
+
+        @self.app.route('/api/networks', methods=['GET', 'POST', 'DELETE'])
+        def networks():
+            try:
+                if request.method == 'GET':
+                    return jsonify({'networks': self.network_manager.list_networks()})
+
+                error = parental_auth_error()
+                if error:
+                    return error
+
+                data = request.get_json(silent=True) or {}
+                if request.method == 'POST':
+                    network = self.network_manager.add_network(
+                        data.get('name', ''), data.get('password', '')
+                    )
+                    return jsonify({'success': True, 'network': network}), 201
+
+                self.network_manager.delete_network(data.get('id', ''))
+                return jsonify({'success': True})
+            except ValueError as exc:
+                return jsonify({'error': str(exc)}), 400
+            except NetworkManagerError as exc:
+                return jsonify({'error': str(exc)}), 503
 
         @self.app.route('/api/seek', methods=['POST'])
         def seek():
@@ -191,7 +326,7 @@ class WebServer:
         # Create a new folder
         @self.app.route('/api/media/folders', methods=['POST'])
         def create_folder():
-            data = request.get_json()
+            data = request.get_json() or {}
             folder_name = data.get('name', '').strip()
 
             if not folder_name:
@@ -238,7 +373,7 @@ class WebServer:
             if self.rfid_reader is None:
                 return jsonify({'error': 'RFID reader not available'}), 503
 
-            data = request.get_json()
+            data = request.get_json() or {}
             text = data.get('text', '').strip()
             lang_code = data.get('lang_code', 'en')
 

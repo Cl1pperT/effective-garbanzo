@@ -1,0 +1,12 @@
+[Unit]
+Description=Forward tonie.local to the RFID audio player
+Requires=tonie-web.socket
+After=tonie-web.socket network.target
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:5000
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true

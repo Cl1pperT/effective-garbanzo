@@ -1,1004 +1,859 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RFID Audio Player</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#10172a">
+    <title>Storybox</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            color-scheme: light;
+            --ink: #172033;
+            --muted: #697386;
+            --surface: #ffffff;
+            --surface-soft: #f4f6fa;
+            --line: #e5e8ef;
+            --navy: #10172a;
+            --navy-soft: #1b2642;
+            --accent: #ff7a59;
+            --accent-dark: #df5b3b;
+            --accent-soft: #fff0eb;
+            --blue: #4b72ff;
+            --success: #21865b;
+            --danger: #c63e48;
+            --shadow: 0 18px 50px rgba(25, 35, 57, .12);
+            --radius: 24px;
         }
+
+        * { box-sizing: border-box; }
+
+        html { background: var(--navy); }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
             min-height: 100vh;
-            padding: 20px;
-            color: #333;
+            min-height: 100dvh;
+            background:
+                radial-gradient(circle at 12% -5%, rgba(75, 114, 255, .28), transparent 34rem),
+                var(--surface-soft);
+            color: var(--ink);
+            font-family: Inter, ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .container {
-            max-width: 600px;
+        button, input, select { font: inherit; }
+        button, label, select, input[type="range"] { touch-action: manipulation; }
+        button { color: inherit; }
+
+        button:focus-visible, input:focus-visible, select:focus-visible {
+            outline: 3px solid rgba(75, 114, 255, .35);
+            outline-offset: 3px;
+        }
+
+        .app-shell {
+            width: min(100%, 760px);
             margin: 0 auto;
+            padding-bottom: calc(96px + env(safe-area-inset-bottom));
         }
 
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .card {
-            background: white;
-            border-radius: 20px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .player-status {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .now-playing {
-            font-size: 0.9em;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .track-name {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .track-info {
-            font-size: 0.9em;
-            color: #999;
-        }
-
-        .controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .progress-section {
-            margin: 20px 0 10px;
-        }
-
-        .time-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
-            font-size: 0.85em;
-            color: #666;
-        }
-
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            font-size: 1.5em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        .topbar {
+            min-height: 82px;
+            padding: calc(18px + env(safe-area-inset-top)) 20px 18px;
             display: flex;
             align-items: center;
-            justify-content: center;
-        }
-
-        .btn:active {
-            transform: scale(0.95);
-        }
-
-        .btn.play-pause {
-            width: 80px;
-            height: 80px;
-            font-size: 2em;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .volume-control {
-            margin: 20px 0;
-        }
-
-        .volume-label {
-            display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 0.9em;
-            color: #666;
+            gap: 16px;
+            color: #fff;
+            background: var(--navy);
         }
 
-        .volume-slider {
-            width: 100%;
-            height: 8px;
-            border-radius: 5px;
-            outline: none;
-            -webkit-appearance: none;
-            background: #ddd;
+        .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            font-size: 21px;
+            background: linear-gradient(145deg, var(--accent), #ffb46b);
+            box-shadow: 0 8px 22px rgba(255, 122, 89, .28);
         }
+        .brand h1 { margin: 0; font-size: 18px; line-height: 1.15; letter-spacing: -.02em; }
+        .brand p { margin: 4px 0 0; color: #aeb8cd; font-size: 12px; }
 
-        .progress-slider {
-            width: 100%;
-            height: 10px;
+        .connection {
+            border: 0;
+            min-height: 36px;
+            padding: 8px 11px;
             border-radius: 999px;
-            outline: none;
-            -webkit-appearance: none;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.5);
-        }
-
-        .progress-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: white;
-            border: 2px solid #667eea;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-        }
-
-        .volume-slider::-moz-range-thumb {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.5);
-        }
-
-        .progress-slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: white;
-            border: 2px solid #667eea;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-        }
-
-        .progress-slider:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .tabs {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .tab {
-            flex: 1;
-            padding: 12px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: all 0.3s ease;
-        }
-
-        .tab.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .folder-list, .file-list {
-            list-style: none;
-        }
-
-        .folder-item, .file-item {
-            background: #f8f8f8;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 10px;
-            display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 7px;
+            background: rgba(255, 255, 255, .08);
+            color: #d9deea;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: #45d18b; box-shadow: 0 0 0 4px rgba(69, 209, 139, .12); }
+        .connection.offline .connection-dot { background: #ff6d78; box-shadow: 0 0 0 4px rgba(255, 109, 120, .12); }
+
+        main { padding: 18px 16px 8px; }
+
+        .player-card {
+            overflow: hidden;
+            border-radius: 28px;
+            background: linear-gradient(145deg, var(--navy-soft), var(--navy));
+            color: #fff;
+            box-shadow: var(--shadow);
         }
 
-        .folder-item:hover, .file-item:hover {
-            background: #f0f0f0;
+        .player-main { padding: 24px 22px 22px; }
+        .now-playing { display: flex; gap: 17px; align-items: center; }
+        .cover {
+            width: 76px;
+            height: 76px;
+            border-radius: 21px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(145deg, #ffb46b, var(--accent));
+            color: #fff;
+            font-size: 32px;
+            box-shadow: inset 0 1px rgba(255,255,255,.35), 0 12px 28px rgba(255,122,89,.22);
         }
+        .track-copy { min-width: 0; }
+        .eyebrow { margin: 0 0 7px; color: #aeb8cd; font-size: 11px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+        .track-name { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; letter-spacing: -.025em; }
+        .track-info { margin: 6px 0 0; color: #aeb8cd; font-size: 13px; }
 
-        .folder-info, .file-info {
-            flex: 1;
-        }
-
-        .folder-name, .file-name {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .folder-meta, .file-meta {
-            font-size: 0.85em;
-            color: #666;
-        }
-
-        .badge {
-            background: #667eea;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 5px;
-            font-size: 0.75em;
-            margin-left: 5px;
-        }
-
-        .btn-small {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin-left: 5px;
-        }
-
-        .btn-small.danger {
-            background: #e74c3c;
-        }
-
-        .btn-small:active {
-            transform: scale(0.95);
-        }
-
-        .support-tools {
-            background: #f8f8ff;
-            border: 1px dashed #c7ccff;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .support-tools .btn-small {
-            margin-left: 0;
+        .progress-wrap { margin: 23px 0 0; }
+        .range {
             width: 100%;
-        }
-
-        .support-status {
-            margin-top: 10px;
-            font-size: 0.85em;
-            color: #555;
-            display: none;
-        }
-
-        .support-status.success {
-            color: #155724;
-        }
-
-        .support-status.error {
-            color: #721c24;
-        }
-
-        .upload-area {
-            border: 2px dashed #ddd;
-            border-radius: 10px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 20px;
+            height: 28px;
+            margin: 0;
+            border: 0;
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
+        .range::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(to right, var(--accent) 0 var(--fill, 0%), rgba(255,255,255,.18) var(--fill, 0%) 100%); }
+        .range::-moz-range-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.18); }
+        .range::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--accent); }
+        .range::-webkit-slider-thumb { width: 20px; height: 20px; margin-top: -7px; border: 4px solid #fff; border-radius: 50%; appearance: none; -webkit-appearance: none; background: var(--accent); box-shadow: 0 3px 12px rgba(0,0,0,.35); }
+        .range::-moz-range-thumb { width: 13px; height: 13px; border: 4px solid #fff; border-radius: 50%; background: var(--accent); }
+        .range:disabled { opacity: .45; cursor: default; }
+        .time-row { display: flex; justify-content: space-between; margin-top: -2px; color: #aeb8cd; font-size: 11px; font-variant-numeric: tabular-nums; }
 
-        .upload-area:hover {
-            border-color: #667eea;
-            background: #f8f8ff;
-        }
-
-        .upload-area input[type="file"] {
-            display: none;
-        }
-
-        .back-btn {
-            background: #f0f0f0;
-            color: #333;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
+        .controls { margin: 13px 0 2px; display: flex; justify-content: center; align-items: center; gap: 24px; }
+        .round-button {
+            width: 52px;
+            height: 52px;
+            border: 0;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: rgba(255,255,255,.08);
+            color: #fff;
+            font-size: 22px;
             cursor: pointer;
-            margin-bottom: 15px;
+            transition: transform .15s ease, background .15s ease;
         }
+        .round-button.primary { width: 72px; height: 72px; background: #fff; color: var(--navy); font-size: 26px; box-shadow: 0 12px 30px rgba(0,0,0,.22); }
+        .round-button:active { transform: scale(.93); }
+        .round-button:disabled { opacity: .3; cursor: default; transform: none; }
 
-        .new-folder-form {
-            display: flex;
+        .volume-row {
+            display: grid;
+            grid-template-columns: 38px 1fr 46px;
+            align-items: center;
             gap: 10px;
-            margin-bottom: 20px;
+            padding: 15px 18px;
+            border-top: 1px solid rgba(255,255,255,.08);
+            background: rgba(255,255,255,.035);
+        }
+        .volume-icon { border: 0; width: 38px; height: 38px; border-radius: 12px; background: transparent; color: #cad1df; cursor: pointer; }
+        .volume-value { color: #cad1df; font-size: 12px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+
+        .panel { margin-top: 18px; padding: 20px; border: 1px solid rgba(16,23,42,.04); border-radius: var(--radius); background: var(--surface); box-shadow: 0 10px 35px rgba(25,35,57,.07); }
+        .panel[hidden] { display: none; }
+        .section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+        .section-head h2 { margin: 0; font-size: 20px; letter-spacing: -.03em; }
+        .section-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+        .count-pill { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; background: var(--surface-soft); color: var(--muted); font-size: 12px; font-weight: 800; }
+
+        .field-row { display: flex; gap: 9px; margin-bottom: 14px; }
+        .field, .select {
+            width: 100%;
+            min-height: 48px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 0 14px;
+            background: #fff;
+            color: var(--ink);
+            font-size: 16px;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .field:focus, .select:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(75,114,255,.1); outline: 0; }
+        .button {
+            min-height: 48px;
+            border: 0;
+            border-radius: 14px;
+            padding: 0 17px;
+            background: var(--navy);
+            color: #fff;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .15s, opacity .15s;
+        }
+        .button:active { transform: scale(.97); }
+        .button:disabled { opacity: .5; cursor: default; }
+        .button.secondary { background: var(--surface-soft); color: var(--ink); }
+        .button.danger { background: #fff0f1; color: var(--danger); }
+        .button.full { width: 100%; }
+        .button.small { min-height: 40px; padding: 0 13px; border-radius: 12px; font-size: 13px; }
+
+        .search-wrap { position: relative; margin-bottom: 14px; }
+        .search-wrap .field { padding-left: 42px; }
+        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+        .media-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+        .media-item { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 17px; display: flex; align-items: center; gap: 12px; background: #fff; }
+        .item-icon { width: 44px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 14px; background: var(--accent-soft); font-size: 20px; }
+        .file-icon { background: #edf1ff; }
+        .item-copy { min-width: 0; flex: 1; }
+        .item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 800; }
+        .item-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+        .item-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+        .icon-button { width: 40px; height: 40px; border: 0; border-radius: 12px; display: grid; place-items: center; background: var(--surface-soft); cursor: pointer; font-size: 15px; }
+        .icon-button.play { background: var(--navy); color: #fff; }
+        .icon-button.delete { background: #fff0f1; color: var(--danger); }
+
+        .empty { padding: 38px 16px; text-align: center; color: var(--muted); }
+        .empty-icon { display: block; margin-bottom: 10px; font-size: 34px; }
+
+        .back-button { margin: -4px 0 15px; border: 0; padding: 8px 0; background: transparent; color: var(--blue); font-weight: 800; cursor: pointer; }
+        .upload-zone { min-height: 130px; margin-bottom: 16px; border: 2px dashed #cfd5e1; border-radius: 19px; display: grid; place-items: center; padding: 20px; text-align: center; cursor: pointer; background: #fafbfc; transition: border-color .15s, background .15s; }
+        .upload-zone.dragging { border-color: var(--blue); background: #f1f4ff; }
+        .upload-zone strong { display: block; margin: 7px 0 4px; font-size: 14px; }
+        .upload-zone small { color: var(--muted); }
+        .upload-zone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        .upload-progress { margin: -4px 0 16px; }
+        .upload-progress[hidden] { display: none; }
+        .progress-track { height: 7px; overflow: hidden; border-radius: 99px; background: var(--line); }
+        .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--blue); transition: width .25s; }
+        .progress-label { margin-top: 7px; color: var(--muted); font-size: 12px; }
+
+        .form-stack { display: grid; gap: 15px; }
+        .form-label { display: grid; gap: 8px; color: var(--ink); font-size: 13px; font-weight: 800; }
+        .hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+        .status-box { padding: 13px 14px; border-radius: 14px; background: #fff6de; color: #74591a; font-size: 13px; line-height: 1.45; }
+        .status-box[hidden] { display: none; }
+        .status-box.success { background: #eaf8f1; color: #176844; }
+        .status-box.error { background: #fff0f1; color: #9e2732; }
+
+        .setting { padding: 17px 0; border-bottom: 1px solid var(--line); }
+        .setting:first-of-type { padding-top: 4px; }
+        .setting:last-of-type { border-bottom: 0; }
+        .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+        .setting-copy { min-width: 0; }
+        .setting-copy strong { display: block; font-size: 14px; }
+        .setting-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+        .setting .range::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--blue) 0 var(--fill, 0%), var(--line) var(--fill, 0%) 100%); }
+        .setting .range::-moz-range-track { background: var(--line); }
+        .setting .range::-moz-range-progress { background: var(--blue); }
+        .toggle { width: 48px; height: 28px; flex: 0 0 auto; appearance: none; -webkit-appearance: none; border-radius: 99px; background: #cdd3de; cursor: pointer; transition: background .2s; }
+        .toggle::before { content: ""; display: block; width: 22px; height: 22px; margin: 3px; border-radius: 50%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,.2); transition: transform .2s; }
+        .toggle:checked { background: var(--blue); }
+        .toggle:checked::before { transform: translateX(20px); }
+        .compact-select { min-height: 42px; width: auto; max-width: 120px; }
+        .network-password { position: relative; }
+        .network-password .field { padding-right: 70px; }
+        .reveal-button { position: absolute; right: 7px; top: 7px; min-height: 34px; border: 0; border-radius: 10px; padding: 0 10px; background: var(--surface-soft); color: var(--muted); font-size: 12px; font-weight: 800; cursor: pointer; }
+
+        details.tools { margin-top: 17px; border-top: 1px solid var(--line); padding-top: 15px; }
+        details.tools summary { color: var(--muted); font-size: 13px; font-weight: 800; cursor: pointer; }
+        .tools-body { padding-top: 13px; }
+
+        .bottom-nav {
+            position: fixed;
+            z-index: 20;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+            width: min(100%, 760px);
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+            border-top: 1px solid rgba(16,23,42,.08);
+            background: rgba(255,255,255,.93);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .nav-button { min-height: 58px; border: 0; border-radius: 15px; display: grid; place-items: center; gap: 2px; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 800; }
+        .nav-icon { font-size: 19px; line-height: 1; }
+        .nav-button.active { background: var(--surface-soft); color: var(--navy); }
+
+        .toast-region { position: fixed; z-index: 50; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); width: min(calc(100% - 28px), 520px); transform: translateX(-50%); pointer-events: none; }
+        .toast { margin-top: 8px; padding: 13px 15px; border-radius: 14px; background: var(--navy); color: #fff; box-shadow: 0 12px 35px rgba(16,23,42,.3); font-size: 13px; font-weight: 700; animation: toast-in .22s ease-out; }
+        .toast.error { background: #9e2732; }
+        @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }
+
+        .auth-dialog { width: min(calc(100% - 32px), 410px); border: 0; border-radius: 22px; padding: 0; color: var(--ink); box-shadow: 0 24px 80px rgba(16,23,42,.35); }
+        .auth-dialog::backdrop { background: rgba(16,23,42,.58); backdrop-filter: blur(3px); }
+        .auth-dialog-body { padding: 24px; }
+        .auth-dialog h2 { margin: 0; font-size: 20px; }
+        .auth-dialog p { margin: 7px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .auth-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 16px; }
+
+        @media (min-width: 640px) {
+            .topbar { border-radius: 0 0 24px 24px; padding-inline: 28px; }
+            main { padding: 24px; }
+            .player-main { padding: 28px 30px 24px; }
+            .panel { padding: 26px; }
+            .cover { width: 88px; height: 88px; }
+            .media-item { padding: 14px 16px; }
         }
 
-        .new-folder-form input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #999;
-        }
-
-        @media (max-width: 480px) {
-            .header h1 {
-                font-size: 1.5em;
-            }
-
-            .controls {
-                gap: 10px;
-            }
-
-            .btn {
-                width: 50px;
-                height: 50px;
-                font-size: 1.2em;
-            }
-
-            .btn.play-pause {
-                width: 70px;
-                height: 70px;
-                font-size: 1.8em;
-            }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎵 RFID Audio Player</h1>
-            <p>Control your music from anywhere</p>
-        </div>
-
-        <div class="card">
-            <div class="player-status">
-                <div class="now-playing">Now Playing</div>
-                <div class="track-name" id="trackName">No track loaded</div>
-                <div class="track-info" id="trackInfo">Scan an RFID tag to start</div>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">♫</div>
+                <div><h1>Storybox</h1><p>RFID audio player</p></div>
             </div>
+            <button class="connection" id="connectionStatus" type="button" title="Refresh connection">
+                <span class="connection-dot" aria-hidden="true"></span><span id="connectionText">Connecting</span>
+            </button>
+        </header>
 
-            <div class="controls">
-                <button class="btn" onclick="prevTrack()" id="prevBtn" disabled>⏮️</button>
-                <button class="btn play-pause" onclick="togglePause()" id="playPauseBtn">▶️</button>
-                <button class="btn" onclick="nextTrack()" id="nextBtn" disabled>⏭️</button>
-            </div>
+        <main>
+            <section class="player-card" aria-labelledby="trackName">
+                <div class="player-main">
+                    <div class="now-playing">
+                        <div class="cover" id="coverArt" aria-hidden="true">♫</div>
+                        <div class="track-copy">
+                            <p class="eyebrow">Now playing</p>
+                            <h2 class="track-name" id="trackName">Nothing playing</h2>
+                            <p class="track-info" id="trackInfo">Choose a folder or scan a card</p>
+                        </div>
+                    </div>
 
-            <div class="progress-section">
-                <input
-                    type="range"
-                    min="0"
-                    max="0"
-                    value="0"
-                    step="0.1"
-                    class="progress-slider"
-                    id="progressSlider"
-                    aria-label="Song progress"
-                    disabled
-                >
-                <div class="time-labels">
-                    <span id="currentTime">0:00</span>
-                    <span id="totalTime">0:00</span>
+                    <div class="progress-wrap">
+                        <input class="range" id="progressSlider" type="range" min="0" max="0" value="0" step="0.1" aria-label="Track position" disabled>
+                        <div class="time-row"><span id="currentTime">0:00</span><span id="totalTime">0:00</span></div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="round-button" id="prevBtn" type="button" aria-label="Previous track" disabled>│◀</button>
+                        <button class="round-button primary" id="playPauseBtn" type="button" aria-label="Play" disabled>▶</button>
+                        <button class="round-button" id="nextBtn" type="button" aria-label="Next track" disabled>▶│</button>
+                    </div>
                 </div>
-            </div>
-
-            <div class="volume-control">
-                <div class="volume-label">
-                    <span>🔊 Volume</span>
-                    <span id="volumeValue">50%</span>
+                <div class="volume-row">
+                    <button class="volume-icon" id="muteBtn" type="button" aria-label="Mute">🔊</button>
+                    <input class="range" id="volumeSlider" type="range" min="0" max="100" value="50" aria-label="Volume">
+                    <span class="volume-value" id="volumeValue">50%</span>
                 </div>
-                <input type="range" min="0" max="100" value="50" class="volume-slider" id="volumeSlider">
-            </div>
-        </div>
+            </section>
 
-        <div class="card">
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('folders')">Media Folders</button>
-                <button class="tab" onclick="switchTab('files')">Files</button>
-                <button class="tab" onclick="switchTab('nfc')">Write NFC</button>
-            </div>
-
-            <div id="foldersTab" class="tab-content active">
-                <div class="new-folder-form">
-                    <input type="text" id="newFolderName" placeholder="New folder name...">
-                    <button class="btn-small" onclick="createFolder()">Create</button>
+            <section class="panel" id="libraryPanel" aria-labelledby="libraryTitle">
+                <div class="section-head">
+                    <div><h2 id="libraryTitle">Your library</h2><p>Tap play to start a shuffled folder.</p></div>
+                    <span class="count-pill" id="libraryCount">0 folders</span>
                 </div>
-
-                <div class="support-tools">
-                    <button class="btn-small" onclick="convertUnsupportedFiles()">Support: Convert Unsupported Audio</button>
-                    <div id="convertStatus" class="support-status"></div>
+                <div class="field-row">
+                    <input class="field" id="newFolderName" type="text" maxlength="80" autocomplete="off" placeholder="New folder name">
+                    <button class="button" id="createFolderBtn" type="button">Add</button>
                 </div>
-
-                <ul class="folder-list" id="folderList">
-                    <li class="empty-state">Loading folders...</li>
+                <div class="search-wrap">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input class="field" id="folderSearch" type="search" autocomplete="off" placeholder="Find a folder" aria-label="Find a folder">
+                </div>
+                <ul class="media-list" id="folderList" aria-live="polite">
+                    <li class="empty"><span class="empty-icon">◌</span>Loading your library…</li>
                 </ul>
-            </div>
-
-            <div id="filesTab" class="tab-content">
-                <button class="back-btn" onclick="backToFolders()">← Back to Folders</button>
-                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                    <input type="file" id="fileInput" accept=".mp3,.ogg,.wav" multiple onchange="uploadFiles()">
-                    <p>📤 Tap to upload audio files</p>
-                    <p style="font-size: 0.85em; color: #999;">Supports MP3, OGG, WAV</p>
-                </div>
-                <ul class="file-list" id="fileList"></ul>
-            </div>
-
-            <div id="nfcTab" class="tab-content">
-                <div style="margin-bottom: 20px;">
-                    <h3 style="margin-bottom: 15px;">Write Text to NFC Tag</h3>
-                    <p style="color: #666; font-size: 0.9em; margin-bottom: 20px;">
-                        Write a folder name to an NFC tag. When scanned, the tag will play the corresponding playlist.
-                    </p>
-
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">Select Folder:</label>
-                        <select id="nfcFolderSelect" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em;">
-                            <option value="">Select a folder...</option>
-                        </select>
+                <details class="tools">
+                    <summary>Audio tools</summary>
+                    <div class="tools-body">
+                        <button class="button secondary full" id="convertBtn" type="button">Convert unsupported audio</button>
+                        <div class="status-box" id="convertStatus" role="status" hidden></div>
                     </div>
+                </details>
+            </section>
 
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">Or Enter Custom Text:</label>
-                        <input type="text" id="nfcCustomText" placeholder="Enter text to write..." style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em;">
-                    </div>
-
-                    <button class="btn-small" onclick="writeNFC()" id="writeNFCBtn" style="width: 100%; padding: 15px; font-size: 1.1em;">
-                        📝 Write to NFC Tag
-                    </button>
-
-                    <div id="nfcStatus" style="margin-top: 20px; padding: 15px; border-radius: 8px; display: none;"></div>
+            <section class="panel" id="filesPanel" aria-labelledby="filesTitle" hidden>
+                <button class="back-button" id="backBtn" type="button">← All folders</button>
+                <div class="section-head">
+                    <div><h2 id="filesTitle">Folder</h2><p id="filesSubtitle">Manage audio files.</p></div>
+                    <span class="count-pill" id="fileCount">0 files</span>
                 </div>
-            </div>
-        </div>
+                <label class="upload-zone" id="uploadZone">
+                    <input type="file" id="fileInput" accept=".mp3,.ogg,.wav,audio/mpeg,audio/ogg,audio/wav" multiple>
+                    <span><span style="font-size:28px" aria-hidden="true">⇧</span><strong>Choose audio files</strong><small>MP3, OGG, or WAV</small></span>
+                </label>
+                <div class="upload-progress" id="uploadProgress" hidden>
+                    <div class="progress-track"><div class="progress-bar" id="uploadProgressBar"></div></div>
+                    <div class="progress-label" id="uploadProgressLabel">Preparing upload…</div>
+                </div>
+                <ul class="media-list" id="fileList" aria-live="polite"></ul>
+            </section>
+
+            <section class="panel" id="nfcPanel" aria-labelledby="nfcTitle" hidden>
+                <div class="section-head"><div><h2 id="nfcTitle">Program a card</h2><p>Connect a folder to an RFID or NFC tag.</p></div><span class="count-pill">NFC</span></div>
+                <div class="form-stack">
+                    <p class="hint">Choose a playlist, place a tag on the reader, then tap write. Custom text can also be used for special actions such as <strong>IP</strong>.</p>
+                    <label class="form-label">Playlist<select class="select" id="nfcFolderSelect"><option value="">Choose a folder…</option></select></label>
+                    <label class="form-label">Custom text (optional)<input class="field" id="nfcCustomText" type="text" maxlength="100" placeholder="For example: IP"></label>
+                    <button class="button full" id="writeNFCBtn" type="button">Write to tag</button>
+                    <div class="status-box" id="nfcStatus" role="status" hidden></div>
+                </div>
+            </section>
+
+            <section class="panel" id="parentsPanel" aria-labelledby="parentsTitle" hidden>
+                <div class="section-head"><div><h2 id="parentsTitle">Parent settings</h2><p>Limits stay active after the player restarts.</p></div><span class="count-pill">🔒</span></div>
+                <div class="setting">
+                    <div class="setting-copy"><strong>Maximum volume <span id="maxVolumeValue">70%</span></strong><small>Applies to the web player and physical buttons.</small></div>
+                    <input class="range" id="maxVolumeSlider" type="range" min="10" max="100" step="5" value="70" aria-label="Maximum volume">
+                </div>
+                <label class="setting setting-row"><span class="setting-copy"><strong>Lock physical buttons</strong><small>Ignore button presses on the box.</small></span><input class="toggle" id="buttonsLocked" type="checkbox" role="switch"></label>
+                <label class="setting setting-row"><span class="setting-copy"><strong>Lock RFID cards</strong><small>Prevent cards from changing playback.</small></span><input class="toggle" id="rfidLocked" type="checkbox" role="switch"></label>
+                <label class="setting setting-row"><span class="setting-copy"><strong>Disable seeking</strong><small>Keep listeners from skipping through a story.</small></span><input class="toggle" id="seekingLocked" type="checkbox" role="switch"></label>
+                <div class="setting setting-row"><span class="setting-copy"><strong>Sleep timer</strong><small id="sleepTimerStatus">Playback continues until stopped.</small></span><select class="select compact-select" id="sleepTimerMinutes" aria-label="Sleep timer"><option value="0">Off</option><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 hour</option><option value="120">2 hours</option></select></div>
+                <button class="button full" id="saveParentsBtn" type="button">Save settings</button>
+                <p class="hint">Your parental password is required before changes are saved.</p>
+                <div class="status-box" id="parentStatus" role="status" hidden></div>
+            </section>
+
+            <section class="panel" id="networkPanel" aria-labelledby="networkTitle" hidden>
+                <div class="section-head"><div><h2 id="networkTitle">Network setup</h2><p>Save Wi-Fi networks for places this box visits.</p></div><span class="count-pill" id="networkCount">0 saved</span></div>
+                <form class="form-stack" id="networkForm">
+                    <label class="form-label">Network name (SSID)<input class="field" id="networkName" type="text" maxlength="32" autocomplete="off" required></label>
+                    <label class="form-label">Password<span class="network-password"><input class="field" id="networkPassword" type="password" minlength="8" maxlength="64" autocomplete="new-password" required><button class="reveal-button" id="revealPasswordBtn" type="button">Show</button></span></label>
+                    <p class="hint">The network is saved for automatic connection later. Adding it will not disconnect the box from its current network.</p>
+                    <button class="button full" id="saveNetworkBtn" type="submit">Save network</button>
+                    <p class="hint">Your parental password is required to save or forget a network.</p>
+                    <div class="status-box" id="networkStatus" role="status" hidden></div>
+                </form>
+                <div class="setting"><div class="setting-copy"><strong>Saved networks</strong><small>Passwords are stored by NetworkManager and are never shown here.</small></div></div>
+                <ul class="media-list" id="networkList" aria-live="polite"><li class="empty">Loading saved networks…</li></ul>
+            </section>
+        </main>
     </div>
 
+    <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-button active" data-panel="library" type="button"><span class="nav-icon">▦</span><span>Library</span></button>
+        <button class="nav-button" data-panel="files" type="button"><span class="nav-icon">♪</span><span>Files</span></button>
+        <button class="nav-button" data-panel="nfc" type="button"><span class="nav-icon">◉</span><span>Cards</span></button>
+        <button class="nav-button" data-panel="parents" type="button"><span class="nav-icon">⚙</span><span>Parents</span></button>
+        <button class="nav-button" data-panel="network" type="button"><span class="nav-icon">⌁</span><span>Network</span></button>
+    </nav>
+    <dialog class="auth-dialog" id="parentAuthDialog">
+        <form class="auth-dialog-body" id="parentAuthForm" method="dialog">
+            <h2>Parent access</h2>
+            <p>Enter the parental password to change protected settings. Access remains unlocked for 15 minutes.</p>
+            <label class="form-label">Parental password<input class="field" id="parentAuthPassword" type="password" minlength="8" maxlength="128" autocomplete="current-password" required></label>
+            <div class="status-box error" id="parentAuthStatus" role="alert" hidden></div>
+            <div class="auth-dialog-actions">
+                <button class="button secondary" id="cancelParentAuthBtn" type="button">Cancel</button>
+                <button class="button" id="submitParentAuthBtn" type="submit">Unlock</button>
+            </div>
+        </form>
+    </dialog>
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
     <script>
-        let currentFolder = null;
-        let updateInterval = null;
-        let isSeeking = false;
+        const state = { currentFolder: null, folders: [], isSeeking: false, online: false, lastVolume: 50, parentAuthPromise: null, resolveParentAuth: null };
+        const $ = (id) => document.getElementById(id);
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            updateStatus();
-            loadFolders();
-            startAutoUpdate();
+        function setConnection(online) {
+            state.online = online;
+            $('connectionStatus').classList.toggle('offline', !online);
+            $('connectionText').textContent = online ? 'Connected' : 'Offline';
+        }
 
-            const progressSlider = document.getElementById('progressSlider');
+        async function api(path, options = {}) {
+            const { timeout = 12000, ...fetchOptions } = options;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeout);
+            let reachedServer = false;
+            try {
+                const response = await fetch(path, { ...fetchOptions, signal: controller.signal });
+                reachedServer = true;
+                setConnection(true);
+                let data = {};
+                try { data = await response.json(); } catch (_) { /* empty response */ }
+                if (!response.ok) {
+                    const error = new Error(data.error || `Request failed (${response.status})`);
+                    error.status = response.status; error.code = data.code;
+                    throw error;
+                }
+                return data;
+            } catch (error) {
+                if (!reachedServer) setConnection(false);
+                throw error;
+            } finally { clearTimeout(timer); }
+        }
 
-            // Volume slider
-            document.getElementById('volumeSlider').addEventListener('input', (e) => {
-                const volume = e.target.value;
-                document.getElementById('volumeValue').textContent = volume + '%';
+        function requestParentAuth() {
+            if (state.parentAuthPromise) return state.parentAuthPromise;
+            $('parentAuthPassword').value=''; $('parentAuthStatus').hidden=true;
+            $('parentAuthDialog').showModal(); setTimeout(()=>$('parentAuthPassword').focus(),0);
+            state.parentAuthPromise=new Promise(resolve=>{state.resolveParentAuth=resolve;});
+            return state.parentAuthPromise;
+        }
+
+        function finishParentAuth(success) {
+            if ($('parentAuthDialog').open) $('parentAuthDialog').close();
+            const resolve=state.resolveParentAuth; state.parentAuthPromise=null; state.resolveParentAuth=null;
+            $('parentAuthPassword').value=''; if(resolve) resolve(success);
+        }
+
+        async function protectedApi(path, options={}) {
+            try { return await api(path,options); }
+            catch(error) {
+                if(error.status!==401 || error.code!=='parental_password_required') throw error;
+                if(!await requestParentAuth()) throw new Error('Parental password entry was cancelled.');
+                return api(path,options);
+            }
+        }
+
+        async function submitParentAuth(event) {
+            event.preventDefault(); const password=$('parentAuthPassword').value;
+            $('submitParentAuthBtn').disabled=true; $('parentAuthStatus').hidden=true;
+            try { await api('/api/parental-auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})}); finishParentAuth(true); }
+            catch(error) { showBox('parentAuthStatus',error.message || 'Could not unlock parent access.',true); $('parentAuthPassword').select(); }
+            finally { $('submitParentAuthBtn').disabled=false; }
+        }
+
+        function toast(message, type = '') {
+            const item = document.createElement('div');
+            item.className = `toast ${type}`;
+            item.textContent = message;
+            $('toastRegion').appendChild(item);
+            setTimeout(() => item.remove(), 3200);
+        }
+
+        function setRangeFill(input) {
+            const min = Number(input.min) || 0;
+            const max = Number(input.max) || 100;
+            const value = Number(input.value) || 0;
+            const fill = max > min ? ((value - min) / (max - min)) * 100 : 0;
+            input.style.setProperty('--fill', `${Math.max(0, Math.min(100, fill))}%`);
+        }
+
+        function formatTime(seconds) {
+            const value = Math.max(0, Math.floor(Number(seconds) || 0));
+            return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+        }
+
+        function encodeFolder(name) { return encodeURIComponent(name); }
+
+        function showPanel(name) {
+            const requested = name === 'files' && !state.currentFolder ? 'library' : name;
+            ['library', 'files', 'nfc', 'parents', 'network'].forEach(panel => {
+                $(`${panel}Panel`).hidden = panel !== requested;
             });
-
-            document.getElementById('volumeSlider').addEventListener('change', (e) => {
-                setVolume(e.target.value);
+            document.querySelectorAll('.nav-button').forEach(button => {
+                const active = button.dataset.panel === requested;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-current', active ? 'page' : 'false');
             });
-
-            progressSlider.addEventListener('pointerdown', () => {
-                isSeeking = true;
-            });
-
-            progressSlider.addEventListener('input', (e) => {
-                isSeeking = true;
-                document.getElementById('currentTime').textContent = formatTime(parseFloat(e.target.value) || 0);
-            });
-
-            progressSlider.addEventListener('change', async (e) => {
-                await seekToPosition(parseFloat(e.target.value) || 0);
-                isSeeking = false;
-            });
-        });
-
-        function startAutoUpdate() {
-            updateInterval = setInterval(updateStatus, 2000);
+            if (requested === 'library') loadFolders();
+            if (requested === 'files' && state.currentFolder) loadFiles(state.currentFolder);
+            if (requested === 'nfc') loadNFCFolders();
+            if (requested === 'parents') loadParentalControls();
+            if (requested === 'network') loadNetworks();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         async function updateStatus() {
             try {
-                const response = await fetch('/api/status');
-                const data = await response.json();
+                const data = await api('/api/status');
+                const hasTrack = Boolean(data.current_track);
+                $('trackName').textContent = data.current_track || 'Nothing playing';
+                $('trackInfo').textContent = hasTrack ? `Track ${data.track_index} of ${data.total_tracks}` : 'Choose a folder or scan a card';
+                $('coverArt').textContent = data.paused ? 'Ⅱ' : '♫';
 
-                // Update track info
-                if (data.current_track) {
-                    document.getElementById('trackName').textContent = data.current_track;
-                    document.getElementById('trackInfo').textContent = `Track ${data.track_index} of ${data.total_tracks}`;
-                    updateProgressUI(data);
-                } else {
-                    document.getElementById('trackName').textContent = 'No track loaded';
-                    document.getElementById('trackInfo').textContent = 'Scan an RFID tag to start';
-                    resetProgressUI();
+                const playButton = $('playPauseBtn');
+                playButton.textContent = data.playing && !data.paused ? 'Ⅱ' : '▶';
+                playButton.setAttribute('aria-label', data.playing && !data.paused ? 'Pause' : 'Play');
+                const hasPlaylist = Number(data.total_tracks) > 0;
+                $('prevBtn').disabled = !hasPlaylist;
+                $('nextBtn').disabled = !hasPlaylist;
+                playButton.disabled = !data.playing && !data.paused;
+
+                const duration = Math.max(0, Number(data.duration_seconds) || 0);
+                const position = Math.max(0, Number(data.position_seconds) || 0);
+                const progress = $('progressSlider');
+                progress.max = duration;
+                progress.disabled = !hasTrack || !data.seek_supported || duration <= 0;
+                if (!state.isSeeking) {
+                    progress.value = Math.min(position, duration);
+                    $('currentTime').textContent = formatTime(position);
+                    setRangeFill(progress);
                 }
+                $('totalTime').textContent = formatTime(duration);
 
-                // Update play/pause button
-                const playPauseBtn = document.getElementById('playPauseBtn');
-                if (data.paused) {
-                    playPauseBtn.textContent = '▶️';
-                } else if (data.playing) {
-                    playPauseBtn.textContent = '⏸️';
-                } else {
-                    playPauseBtn.textContent = '▶️';
-                }
-
-                // Enable/disable controls
-                const hasPlaylist = data.total_tracks > 0;
-                document.getElementById('prevBtn').disabled = !hasPlaylist;
-                document.getElementById('nextBtn').disabled = !hasPlaylist;
-                document.getElementById('playPauseBtn').disabled = !data.playing && !data.paused;
-
-                // Update volume
-                document.getElementById('volumeSlider').value = data.volume;
-                document.getElementById('volumeValue').textContent = data.volume + '%';
-
+                const maxVolume = Number(data.max_volume ?? 100);
+                const volume = Number(data.volume) || 0;
+                $('volumeSlider').max = maxVolume;
+                $('volumeSlider').value = volume;
+                $('volumeValue').textContent = `${volume}%`;
+                $('muteBtn').textContent = volume === 0 ? '🔇' : volume < 45 ? '🔉' : '🔊';
+                if (volume > 0) state.lastVolume = volume;
+                setRangeFill($('volumeSlider'));
             } catch (error) {
-                console.error('Error updating status:', error);
+                console.warn('Status unavailable:', error);
             }
         }
 
-        function updateProgressUI(data) {
-            const progressSlider = document.getElementById('progressSlider');
-            const duration = Math.max(0, data.duration_seconds || 0);
-            const position = Math.max(0, data.position_seconds || 0);
-            const canSeek = Boolean(data.current_track) && Boolean(data.seek_supported) && duration > 0;
-
-            progressSlider.max = duration;
-            progressSlider.disabled = !canSeek;
-
-            if (!isSeeking) {
-                progressSlider.value = Math.min(position, duration);
-                document.getElementById('currentTime').textContent = formatTime(position);
-            }
-
-            document.getElementById('totalTime').textContent = formatTime(duration);
-        }
-
-        function resetProgressUI() {
-            const progressSlider = document.getElementById('progressSlider');
-            progressSlider.value = 0;
-            progressSlider.max = 0;
-            progressSlider.disabled = true;
-            document.getElementById('currentTime').textContent = '0:00';
-            document.getElementById('totalTime').textContent = '0:00';
-            isSeeking = false;
-        }
-
-        function formatTime(totalSeconds) {
-            const safeSeconds = Math.max(0, Math.floor(totalSeconds || 0));
-            const minutes = Math.floor(safeSeconds / 60);
-            const seconds = safeSeconds % 60;
-            return `${minutes}:${String(seconds).padStart(2, '0')}`;
-        }
-
-        async function togglePause() {
-            try {
-                await fetch('/api/pause', { method: 'POST' });
-                updateStatus();
-            } catch (error) {
-                console.error('Error toggling pause:', error);
-            }
-        }
-
-        async function nextTrack() {
-            try {
-                await fetch('/api/next', { method: 'POST' });
-                setTimeout(updateStatus, 300);
-            } catch (error) {
-                console.error('Error skipping track:', error);
-            }
-        }
-
-        async function prevTrack() {
-            try {
-                await fetch('/api/prev', { method: 'POST' });
-                setTimeout(updateStatus, 300);
-            } catch (error) {
-                console.error('Error going to previous track:', error);
-            }
+        async function playerAction(path, failureMessage) {
+            try { await api(path, { method: 'POST' }); await updateStatus(); }
+            catch (error) { toast(error.message || failureMessage, 'error'); }
         }
 
         async function setVolume(volume) {
             try {
-                await fetch('/api/volume', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ volume: parseInt(volume) })
-                });
-            } catch (error) {
-                console.error('Error setting volume:', error);
-            }
+                const data = await api('/api/volume', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ volume: Number(volume) }) });
+                $('volumeSlider').value = data.volume;
+                $('volumeValue').textContent = `${data.volume}%`;
+                setRangeFill($('volumeSlider'));
+            } catch (error) { toast('Could not change volume', 'error'); }
         }
 
-        async function seekToPosition(positionSeconds) {
-            try {
-                const response = await fetch('/api/seek', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ position_seconds: positionSeconds })
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    alert(data.error || 'Unable to seek in this track');
-                }
-
-                updateStatus();
-            } catch (error) {
-                console.error('Error seeking track:', error);
-                alert('Error seeking track');
-            }
+        async function seek(position) {
+            try { await api('/api/seek', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ position_seconds: Number(position) }) }); }
+            catch (error) { toast(error.message || 'Could not seek', 'error'); }
+            finally { state.isSeeking = false; updateStatus(); }
         }
 
-        function switchTab(tab) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            if (tab === 'folders') {
-                document.getElementById('foldersTab').classList.add('active');
-                loadFolders();
-            } else if (tab === 'files') {
-                document.getElementById('filesTab').classList.add('active');
-            } else if (tab === 'nfc') {
-                document.getElementById('nfcTab').classList.add('active');
-                loadNFCFolders();
+        function renderFolders() {
+            const list = $('folderList');
+            const query = $('folderSearch').value.trim().toLocaleLowerCase();
+            const folders = state.folders.filter(folder => folder.name.toLocaleLowerCase().includes(query));
+            list.replaceChildren();
+            $('libraryCount').textContent = `${state.folders.length} ${state.folders.length === 1 ? 'folder' : 'folders'}`;
+            if (!folders.length) {
+                const empty = document.createElement('li');
+                empty.className = 'empty';
+                empty.textContent = query ? 'No folders match your search.' : 'No folders yet. Add one above.';
+                list.appendChild(empty);
+                return;
             }
+            folders.forEach(folder => {
+                const item = document.createElement('li'); item.className = 'media-item';
+                const icon = document.createElement('span'); icon.className = 'item-icon'; icon.textContent = '♫'; icon.setAttribute('aria-hidden','true');
+                const copy = document.createElement('div'); copy.className = 'item-copy';
+                const title = document.createElement('div'); title.className = 'item-name'; title.textContent = folder.name;
+                const meta = document.createElement('div'); meta.className = 'item-meta'; meta.textContent = `${folder.file_count} ${folder.file_count === 1 ? 'track' : 'tracks'}`;
+                copy.append(title, meta);
+                const actions = document.createElement('div'); actions.className = 'item-actions';
+                const play = document.createElement('button'); play.className = 'icon-button play'; play.type = 'button'; play.textContent = '▶'; play.setAttribute('aria-label', `Play ${folder.name}`); play.addEventListener('click', () => playFolder(folder.name));
+                const open = document.createElement('button'); open.className = 'icon-button'; open.type = 'button'; open.textContent = '›'; open.setAttribute('aria-label', `Open ${folder.name}`); open.addEventListener('click', () => openFolder(folder.name));
+                const remove = document.createElement('button'); remove.className = 'icon-button delete'; remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Delete ${folder.name}`); remove.addEventListener('click', () => deleteFolder(folder.name));
+                actions.append(play, open, remove); item.append(icon, copy, actions); list.appendChild(item);
+            });
         }
 
         async function loadFolders() {
-            try {
-                const response = await fetch('/api/media/folders');
-                const data = await response.json();
-                const folderList = document.getElementById('folderList');
-
-                if (data.folders.length === 0) {
-                    folderList.innerHTML = '<li class="empty-state">No folders yet. Create one to get started!</li>';
-                    return;
-                }
-
-                folderList.innerHTML = data.folders.map(folder => `
-                    <li class="folder-item">
-                        <div class="folder-info">
-                            <div class="folder-name">
-                                📁 ${folder.name}
-                                ${folder.rfid_mapped ? '<span class="badge">RFID</span>' : ''}
-                            </div>
-                            <div class="folder-meta">${folder.file_count} files</div>
-                        </div>
-                        <div>
-                            <button class="btn-small" onclick="playFolder('${folder.name}')">Play Now</button>
-                            <button class="btn-small" onclick="openFolder('${folder.name}')">Open</button>
-                            <button class="btn-small danger" onclick="deleteFolder('${folder.name}')">Delete</button>
-                        </div>
-                    </li>
-                `).join('');
-            } catch (error) {
-                console.error('Error loading folders:', error);
-            }
-        }
-
-        function openFolder(folderName) {
-            currentFolder = folderName;
-            switchTab('files');
-            loadFiles(folderName);
-        }
-
-        async function loadFiles(folderName) {
-            try {
-                const response = await fetch(`/api/media/folders/${folderName}/files`);
-                const data = await response.json();
-                const fileList = document.getElementById('fileList');
-
-                if (data.files.length === 0) {
-                    fileList.innerHTML = '<li class="empty-state">No files in this folder. Upload some audio files!</li>';
-                    return;
-                }
-
-                fileList.innerHTML = data.files.map(file => `
-                    <li class="file-item">
-                        <div class="file-info">
-                            <div class="file-name">🎵 ${file.name}</div>
-                            <div class="file-meta">${file.size_mb} MB</div>
-                        </div>
-                        <button class="btn-small danger" onclick="deleteFile('${file.path.replace(/'/g, "\\'")}')">Delete</button>
-                    </li>
-                `).join('');
-            } catch (error) {
-                console.error('Error loading files:', error);
-            }
-        }
-
-        function backToFolders() {
-            currentFolder = null;
-            switchTab('folders');
+            try { const data = await api('/api/media/folders'); state.folders = Array.isArray(data.folders) ? data.folders : []; renderFolders(); }
+            catch (error) { $('folderList').textContent = 'Could not load the library.'; }
         }
 
         async function createFolder() {
-            const name = document.getElementById('newFolderName').value.trim();
-            if (!name) {
-                alert('Please enter a folder name');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/media/folders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    document.getElementById('newFolderName').value = '';
-                    loadFolders();
-                } else {
-                    alert(data.error || 'Error creating folder');
-                }
-            } catch (error) {
-                console.error('Error creating folder:', error);
-                alert('Error creating folder');
-            }
+            const input = $('newFolderName'); const name = input.value.trim();
+            if (!name) { toast('Enter a folder name first', 'error'); input.focus(); return; }
+            try { await api('/api/media/folders', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) }); input.value = ''; toast(`Created ${name}`); await loadFolders(); }
+            catch (error) { toast(error.message || 'Could not create folder', 'error'); }
         }
 
-        async function deleteFolder(folderName) {
-            if (!confirm(`Delete folder "${folderName}" and all its files?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/media/folders/${folderName}`, {
-                    method: 'DELETE'
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    loadFolders();
-                } else {
-                    alert(data.error || 'Error deleting folder');
-                }
-            } catch (error) {
-                console.error('Error deleting folder:', error);
-                alert('Error deleting folder');
-            }
+        async function playFolder(name) {
+            try { await api(`/api/media/folders/${encodeFolder(name)}/play`, {method:'POST'}); toast(`Playing ${name}`); await updateStatus(); }
+            catch (error) { toast(error.message || 'Could not start playback', 'error'); }
         }
 
-        async function convertUnsupportedFiles() {
-            const statusDiv = document.getElementById('convertStatus');
-            if (!statusDiv) {
-                return;
-            }
+        function openFolder(name) { state.currentFolder = name; showPanel('files'); }
 
-            statusDiv.style.display = 'block';
-            statusDiv.className = 'support-status';
-            statusDiv.textContent = 'Converting unsupported files...';
-
-            try {
-                const response = await fetch('/api/media/convert', {
-                    method: 'POST'
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    statusDiv.classList.add('success');
-                    statusDiv.textContent = data.message || 'Conversion complete.';
-                } else {
-                    statusDiv.classList.add('error');
-                    statusDiv.textContent = data.error || 'Conversion failed.';
-                }
-            } catch (error) {
-                console.error('Error converting files:', error);
-                statusDiv.classList.add('error');
-                statusDiv.textContent = 'Unable to start conversion.';
-            } finally {
-                loadFolders();
-            }
+        async function deleteFolder(name) {
+            if (!confirm(`Delete “${name}” and every file inside it?`)) return;
+            try { await api(`/api/media/folders/${encodeFolder(name)}`, {method:'DELETE'}); toast(`Deleted ${name}`); await loadFolders(); }
+            catch (error) { toast(error.message || 'Could not delete folder', 'error'); }
         }
 
-        async function playFolder(folderName) {
+        async function loadFiles(name) {
+            $('filesTitle').textContent = name;
+            $('filesSubtitle').textContent = 'Add or remove audio from this playlist.';
+            const list = $('fileList'); list.replaceChildren();
             try {
-                const response = await fetch(`/api/media/folders/${folderName}/play`, {
-                    method: 'POST'
+                const data = await api(`/api/media/folders/${encodeFolder(name)}/files`);
+                const files = Array.isArray(data.files) ? data.files : [];
+                $('fileCount').textContent = `${files.length} ${files.length === 1 ? 'file' : 'files'}`;
+                if (!files.length) { const empty = document.createElement('li'); empty.className='empty'; empty.textContent='This folder is empty. Add audio above.'; list.appendChild(empty); return; }
+                files.forEach(file => {
+                    const item = document.createElement('li'); item.className='media-item';
+                    const icon = document.createElement('span'); icon.className='item-icon file-icon'; icon.textContent='♪';
+                    const copy = document.createElement('div'); copy.className='item-copy';
+                    const title = document.createElement('div'); title.className='item-name'; title.textContent=file.name;
+                    const meta = document.createElement('div'); meta.className='item-meta'; meta.textContent=`${file.size_mb} MB`;
+                    copy.append(title,meta);
+                    const remove = document.createElement('button'); remove.className='icon-button delete'; remove.type='button'; remove.textContent='×'; remove.setAttribute('aria-label',`Delete ${file.name}`); remove.addEventListener('click',()=>deleteFile(file.path));
+                    item.append(icon,copy,remove); list.appendChild(item);
                 });
-                const data = await response.json();
-                if (data.success) {
-                    updateStatus();
-                } else {
-                    alert(data.error || 'Error starting playback');
-                }
-            } catch (error) {
-                console.error('Error starting playback:', error);
-                alert('Error starting playback');
-            }
+            } catch (error) { list.textContent = 'Could not load files.'; }
         }
 
-        async function uploadFiles() {
-            const fileInput = document.getElementById('fileInput');
-            const files = fileInput.files;
-
-            if (!files.length || !currentFolder) {
-                return;
+        async function uploadFiles(files) {
+            if (!files.length || !state.currentFolder) return;
+            const progress = $('uploadProgress'); progress.hidden=false;
+            let failures = 0;
+            for (let index=0; index<files.length; index++) {
+                const file=files[index];
+                $('uploadProgressLabel').textContent=`Uploading ${index+1} of ${files.length}: ${file.name}`;
+                $('uploadProgressBar').style.width=`${(index/files.length)*100}%`;
+                const form=new FormData(); form.append('file',file);
+                try { await api(`/api/media/folders/${encodeFolder(state.currentFolder)}/upload`,{method:'POST',body:form,timeout:300000}); }
+                catch (error) { failures++; toast(`${file.name}: ${error.message}`, 'error'); }
+                $('uploadProgressBar').style.width=`${((index+1)/files.length)*100}%`;
             }
-
-            for (let file of files) {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                try {
-                    const response = await fetch(`/api/media/folders/${currentFolder}/upload`, {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const data = await response.json();
-                    if (!data.success) {
-                        alert(`Error uploading ${file.name}: ${data.error}`);
-                    }
-                } catch (error) {
-                    console.error(`Error uploading ${file.name}:`, error);
-                    alert(`Error uploading ${file.name}`);
-                }
-            }
-
-            fileInput.value = '';
-            loadFiles(currentFolder);
+            $('fileInput').value='';
+            $('uploadProgressLabel').textContent=failures ? `Finished with ${failures} error(s)` : 'Upload complete';
+            if (!failures) toast(`${files.length} ${files.length===1?'file':'files'} uploaded`);
+            await loadFiles(state.currentFolder); setTimeout(()=>{progress.hidden=true;},1800);
         }
 
-        async function deleteFile(filePath) {
-            if (!filePath) {
-                return;
-            }
+        async function deleteFile(path) {
+            if (!confirm(`Delete “${path}”?`)) return;
+            const encoded=path.split('/').map(encodeURIComponent).join('/');
+            try { await api(`/api/media/folders/${encodeFolder(state.currentFolder)}/files/${encoded}`,{method:'DELETE'}); toast('File deleted'); await loadFiles(state.currentFolder); }
+            catch (error) { toast(error.message || 'Could not delete file','error'); }
+        }
 
-            if (!confirm(`Delete "${filePath}"?`)) {
-                return;
-            }
-
-            try {
-                const encodedPath = filePath
-                    .split('/')
-                    .map(encodeURIComponent)
-                    .join('/');
-
-                const response = await fetch(`/api/media/folders/${currentFolder}/files/${encodedPath}`, {
-                    method: 'DELETE'
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    loadFiles(currentFolder);
-                } else {
-                    alert(data.error || 'Error deleting file');
-                }
-            } catch (error) {
-                console.error('Error deleting file:', error);
-                alert('Error deleting file');
-            }
+        async function convertAudio() {
+            const box=$('convertStatus'); box.hidden=false; box.className='status-box'; box.textContent='Converting audio. This may take a while…'; $('convertBtn').disabled=true;
+            try { const data=await api('/api/media/convert',{method:'POST',timeout:300000}); box.classList.add('success'); box.textContent=data.message || 'Conversion complete.'; await loadFolders(); }
+            catch (error) { box.classList.add('error'); box.textContent=error.message || 'Conversion failed.'; }
+            finally { $('convertBtn').disabled=false; }
         }
 
         async function loadNFCFolders() {
             try {
-                const response = await fetch('/api/media/folders');
-                const data = await response.json();
-                const select = document.getElementById('nfcFolderSelect');
-
-                // Clear existing options except the first one
-                select.innerHTML = '<option value="">Select a folder...</option>';
-
-                // Add folder options
-                data.folders.forEach(folder => {
-                    const option = document.createElement('option');
-                    option.value = folder.name;
-                    option.textContent = folder.name;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loading folders for NFC:', error);
-            }
+                const data=await api('/api/media/folders'); const select=$('nfcFolderSelect'); select.replaceChildren();
+                const placeholder=document.createElement('option'); placeholder.value=''; placeholder.textContent='Choose a folder…'; select.appendChild(placeholder);
+                (data.folders||[]).forEach(folder=>{ const option=document.createElement('option'); option.value=folder.name; option.textContent=folder.name; select.appendChild(option); });
+            } catch (error) { toast('Could not load folders','error'); }
         }
 
         async function writeNFC() {
-            const folderSelect = document.getElementById('nfcFolderSelect');
-            const customText = document.getElementById('nfcCustomText');
-            const statusDiv = document.getElementById('nfcStatus');
-            const writeBtn = document.getElementById('writeNFCBtn');
-
-            // Get text from either folder select or custom input
-            let text = customText.value.trim();
-            if (!text && folderSelect.value) {
-                text = folderSelect.value;
-            }
-
-            if (!text) {
-                alert('Please select a folder or enter custom text');
-                return;
-            }
-
-            // Show loading status
-            statusDiv.style.display = 'block';
-            statusDiv.style.background = '#fff3cd';
-            statusDiv.style.color = '#856404';
-            statusDiv.textContent = '⏳ Writing to NFC tag... Please place a tag near the reader.';
-            writeBtn.disabled = true;
-
-            try {
-                const response = await fetch('/api/nfc/write', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text, lang_code: 'en' })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // Show success message
-                    statusDiv.style.background = '#d4edda';
-                    statusDiv.style.color = '#155724';
-                    statusDiv.textContent = `✅ ${data.message}`;
-
-                    // Clear inputs
-                    customText.value = '';
-                    folderSelect.value = '';
-                } else {
-                    // Show error message
-                    statusDiv.style.background = '#f8d7da';
-                    statusDiv.style.color = '#721c24';
-                    statusDiv.textContent = `❌ ${data.error}`;
-                }
-            } catch (error) {
-                console.error('Error writing to NFC:', error);
-                statusDiv.style.background = '#f8d7da';
-                statusDiv.style.color = '#721c24';
-                statusDiv.textContent = `❌ Error: ${error.message}`;
-            } finally {
-                writeBtn.disabled = false;
-            }
+            const text=$('nfcCustomText').value.trim() || $('nfcFolderSelect').value;
+            const box=$('nfcStatus');
+            if (!text) { toast('Choose a folder or enter custom text','error'); return; }
+            box.hidden=false; box.className='status-box'; box.textContent='Hold a tag on the reader…'; $('writeNFCBtn').disabled=true;
+            try { const data=await api('/api/nfc/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang_code:'en'}),timeout:30000}); box.classList.add('success'); box.textContent=data.message || 'Tag written successfully.'; $('nfcCustomText').value=''; $('nfcFolderSelect').value=''; }
+            catch (error) { box.classList.add('error'); box.textContent=error.message || 'Could not write the tag.'; }
+            finally { $('writeNFCBtn').disabled=false; }
         }
+
+        async function loadParentalControls() {
+            try {
+                const data=await api('/api/parental-controls');
+                $('maxVolumeSlider').value=data.max_volume; $('maxVolumeValue').textContent=`${data.max_volume}%`; setRangeFill($('maxVolumeSlider'));
+                $('buttonsLocked').checked=Boolean(data.buttons_locked); $('rfidLocked').checked=Boolean(data.rfid_locked); $('seekingLocked').checked=Boolean(data.seeking_locked);
+                $('sleepTimerStatus').textContent=data.sleep_timer_minutes ? `${data.sleep_timer_minutes} minute(s) remaining.` : 'Playback continues until stopped.';
+            } catch (error) { showBox('parentStatus','Could not load parent settings.',true); }
+        }
+
+        function showBox(id,message,error=false) { const box=$(id); box.hidden=false; box.className=`status-box ${error?'error':'success'}`; box.textContent=message; }
+
+        async function saveParents() {
+            const settings={max_volume:Number($('maxVolumeSlider').value),buttons_locked:$('buttonsLocked').checked,rfid_locked:$('rfidLocked').checked,seeking_locked:$('seekingLocked').checked};
+            $('saveParentsBtn').disabled=true;
+            try {
+                await protectedApi('/api/parental-controls',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(settings)});
+                await protectedApi('/api/parental-controls/sleep-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({minutes:Number($('sleepTimerMinutes').value)})});
+                showBox('parentStatus','Parent settings saved.'); toast('Settings saved'); await loadParentalControls(); await updateStatus();
+            } catch (error) { showBox('parentStatus',error.message || 'Could not save settings.',true); }
+            finally { $('saveParentsBtn').disabled=false; }
+        }
+
+        function renderNetworks(networks) {
+            const list=$('networkList'); list.replaceChildren();
+            $('networkCount').textContent=`${networks.length} saved`;
+            if (!networks.length) { const empty=document.createElement('li'); empty.className='empty'; empty.textContent='No Wi-Fi networks are saved yet.'; list.appendChild(empty); return; }
+            networks.forEach(network=>{
+                const item=document.createElement('li'); item.className='media-item';
+                const icon=document.createElement('span'); icon.className='item-icon file-icon'; icon.textContent='⌁'; icon.setAttribute('aria-hidden','true');
+                const copy=document.createElement('div'); copy.className='item-copy';
+                const title=document.createElement('div'); title.className='item-name'; title.textContent=network.name;
+                const meta=document.createElement('div'); meta.className='item-meta'; meta.textContent=network.active?'Connected now':'Saved for automatic connection';
+                copy.append(title,meta); item.append(icon,copy);
+                const remove=document.createElement('button'); remove.className='icon-button delete'; remove.type='button'; remove.textContent='×'; remove.disabled=network.active; remove.setAttribute('aria-label',network.active?`${network.name} is currently connected`:`Forget ${network.name}`); remove.addEventListener('click',()=>deleteNetwork(network));
+                item.appendChild(remove); list.appendChild(item);
+            });
+        }
+
+        async function loadNetworks() {
+            try { const data=await api('/api/networks'); renderNetworks(Array.isArray(data.networks)?data.networks:[]); }
+            catch (error) { $('networkList').textContent='Could not load saved networks.'; showBox('networkStatus',error.message || 'Network setup is unavailable.',true); }
+        }
+
+        async function saveNetwork(event) {
+            event.preventDefault(); const name=$('networkName').value.trim(); const password=$('networkPassword').value;
+            $('saveNetworkBtn').disabled=true; $('networkStatus').hidden=true;
+            try { await protectedApi('/api/networks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password})}); $('networkForm').reset(); $('networkPassword').type='password'; $('revealPasswordBtn').textContent='Show'; showBox('networkStatus',`Saved ${name}.`); toast('Network saved'); await loadNetworks(); }
+            catch (error) { showBox('networkStatus',error.message || 'Could not save network.',true); }
+            finally { $('saveNetworkBtn').disabled=false; }
+        }
+
+        async function deleteNetwork(network) {
+            if (!confirm(`Forget “${network.name}”?`)) return;
+            try { await protectedApi('/api/networks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:network.id})}); toast(`Forgot ${network.name}`); await loadNetworks(); }
+            catch (error) { showBox('networkStatus',error.message || 'Could not forget network.',true); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.nav-button').forEach(button=>button.addEventListener('click',()=>showPanel(button.dataset.panel)));
+            $('connectionStatus').addEventListener('click',updateStatus);
+            $('prevBtn').addEventListener('click',()=>playerAction('/api/prev','Could not go back'));
+            $('playPauseBtn').addEventListener('click',()=>playerAction('/api/pause','Could not change playback'));
+            $('nextBtn').addEventListener('click',()=>playerAction('/api/next','Could not skip'));
+            $('muteBtn').addEventListener('click',()=>setVolume(Number($('volumeSlider').value)>0?0:state.lastVolume));
+            $('volumeSlider').addEventListener('input',event=>{ $('volumeValue').textContent=`${event.target.value}%`; setRangeFill(event.target); });
+            $('volumeSlider').addEventListener('change',event=>setVolume(event.target.value));
+            $('progressSlider').addEventListener('pointerdown',()=>{state.isSeeking=true;});
+            $('progressSlider').addEventListener('input',event=>{state.isSeeking=true;$('currentTime').textContent=formatTime(event.target.value);setRangeFill(event.target);});
+            $('progressSlider').addEventListener('change',event=>seek(event.target.value));
+            $('createFolderBtn').addEventListener('click',createFolder);
+            $('newFolderName').addEventListener('keydown',event=>{if(event.key==='Enter')createFolder();});
+            $('folderSearch').addEventListener('input',renderFolders);
+            $('backBtn').addEventListener('click',()=>{state.currentFolder=null;showPanel('library');});
+            $('fileInput').addEventListener('change',event=>uploadFiles([...event.target.files]));
+            const zone=$('uploadZone');
+            ['dragenter','dragover'].forEach(name=>zone.addEventListener(name,event=>{event.preventDefault();zone.classList.add('dragging');}));
+            ['dragleave','drop'].forEach(name=>zone.addEventListener(name,event=>{event.preventDefault();zone.classList.remove('dragging');}));
+            zone.addEventListener('drop',event=>uploadFiles([...event.dataTransfer.files]));
+            $('convertBtn').addEventListener('click',convertAudio);
+            $('writeNFCBtn').addEventListener('click',writeNFC);
+            $('maxVolumeSlider').addEventListener('input',event=>{$('maxVolumeValue').textContent=`${event.target.value}%`;setRangeFill(event.target);});
+            $('saveParentsBtn').addEventListener('click',saveParents);
+            $('networkForm').addEventListener('submit',saveNetwork);
+            $('revealPasswordBtn').addEventListener('click',()=>{ const input=$('networkPassword'); const show=input.type==='password'; input.type=show?'text':'password'; $('revealPasswordBtn').textContent=show?'Hide':'Show'; });
+            $('parentAuthForm').addEventListener('submit',submitParentAuth);
+            $('cancelParentAuthBtn').addEventListener('click',()=>finishParentAuth(false));
+            $('parentAuthDialog').addEventListener('cancel',event=>{event.preventDefault();finishParentAuth(false);});
+
+            updateStatus(); loadFolders(); setRangeFill($('volumeSlider')); setRangeFill($('maxVolumeSlider'));
+            setInterval(()=>{ if(!document.hidden) updateStatus(); },2000);
+            window.addEventListener('online',updateStatus); window.addEventListener('offline',()=>setConnection(false));
+        });
     </script>
 </body>
 </html>

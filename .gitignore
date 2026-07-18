@@ -3,3 +3,4 @@ media/
 __pycache__
 tmp*
 *.whl
+parental_auth.json

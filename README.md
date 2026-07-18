@@ -12,6 +12,7 @@ A Raspberry Pi-based RFID-triggered audio player with web interface for remote c
   - Track navigation (next/previous)
   - Media file management (upload, delete)
   - Folder organization
+  - Save additional Wi-Fi networks for automatic connection
   - Mobile-friendly design
 
 ## Hardware Requirements
@@ -40,7 +41,16 @@ Or using pip:
 pip install -e .
 ```
 
-3. Configure your RFID-to-media mappings in `src/rfid_audio_player/config.py`:
+3. Set the parental password used to protect network and parental changes:
+
+```bash
+python scripts/set-parental-password.py
+```
+
+The password is stored as a one-way hash in a private local file. Restart the
+player after changing it. Successful website logins remain valid for 15 minutes.
+
+4. Configure your RFID-to-media mappings in `src/rfid_audio_player/config.py`:
 ```python
 RFID_MEDIA_MAP = {
     '1364185516': 'Spiderman',  # Maps to media/Spiderman/
@@ -48,7 +58,7 @@ RFID_MEDIA_MAP = {
 }
 ```
 
-4. Create your media folders and add audio files:
+5. Create your media folders and add audio files:
 ```bash
 mkdir -p media/Spiderman
 # Add .mp3, .ogg, or .wav files to the folder
@@ -66,21 +76,37 @@ python main.py
 This will start:
 - RFID tag reader
 - GPIO button controls
-- Web server (accessible at `http://<raspberry-pi-ip>:5000`)
+- Web server (accessible at `http://tonie.local:5000` by default)
 
 ### Using the Web Interface
 
-1. Find your Raspberry Pi's IP address:
+1. Open the player from another device on the same network:
 ```bash
-hostname -I
+http://tonie.local:5000
 ```
 
-2. Open a web browser on your phone or computer and navigate to:
-```
-http://<raspberry-pi-ip>:5000
+The `.local` name follows the player even when its IP address changes. If your
+network does not support mDNS, use `hostname -I` on the Pi and open
+`http://<raspberry-pi-ip>:5000` instead.
+
+### Optional shorter URL
+
+To remove `:5000` and use `http://tonie.local`, run the included one-time
+installer from the project directory:
+
+```bash
+sudo ./scripts/install-friendly-url.sh
 ```
 
-3. Use the web interface to:
+This keeps the player running as its normal user and installs a small systemd
+socket proxy on port 80. The friendly URL and proxy persist across restarts.
+Pass another lowercase name to the installer if desired, for example:
+
+```bash
+sudo ./scripts/install-friendly-url.sh storybox
+```
+
+2. Use the web interface to:
    - Control playback (play/pause, next/previous track)
    - Adjust volume with the slider
    - Create new media folders
@@ -101,8 +127,8 @@ Default pin assignments (BCM numbering):
 - GPIO 27: Play/Pause
 - GPIO 22: Volume Up
 - GPIO 23: Volume Down
-- GPIO 16: Next Track
-- GPIO 26: Previous Track
+- GPIO 18: Next Track
+- GPIO 17: Previous Track
 
 Customize these in `src/rfid_audio_player/config.py`.
 
@@ -163,6 +189,27 @@ The web server provides the following REST API endpoints:
 - `GET /api/media/folders/<name>/files` - List files in folder
 - `POST /api/media/folders/<name>/upload` - Upload file
 - `DELETE /api/media/folders/<name>/files/<filename>` - Delete file
+- `GET /api/networks` - List saved Wi-Fi network names
+- `POST /api/networks` - Save a WPA/WPA2 Wi-Fi network
+- `DELETE /api/networks` - Forget a saved Wi-Fi network
+
+### Network setup permissions
+
+Network setup uses NetworkManager (`nmcli`) and saves credentials in its normal
+system connection store. The website never returns saved passwords. The user
+running `main.py` must be authorized by NetworkManager/PolicyKit to add and
+remove system connections. The friendly-URL installer configures that permission
+automatically. If you do not use the friendly URL, or installed it before network
+setup was added, run this once from the project directory:
+
+```bash
+sudo ./scripts/install-network-permissions.sh
+```
+
+The installed rule only grants the player user permission to modify saved system
+connections, and the installer refuses to enable it until a parental password is
+configured. The website requires that password before saving or forgetting a
+network. Ensure NetworkManager is the active networking service.
 
 ## Supported Audio Formats
 
@@ -199,6 +246,8 @@ python -m unittest discover tests -v
 ### Web interface not accessible
 - Check that port 5000 is not blocked by firewall
 - Verify your device is on the same network as the Raspberry Pi
+- Check mDNS with `getent hosts tonie.local`
+- Check the short-URL proxy with `systemctl status tonie-web.socket`
 - Try accessing from the Pi itself: `http://localhost:5000`
 
 ## License

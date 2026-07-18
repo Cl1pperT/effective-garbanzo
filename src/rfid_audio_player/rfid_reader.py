@@ -1,5 +1,6 @@
 # rfid_reader.py
 import time
+import threading
 from typing import List, Optional
 
 from pirc522 import RFID
@@ -21,6 +22,9 @@ class Reader:
     def __init__(self):
         self.rfid: Optional[RFID] = None
         self.last_uid: Optional[str] = None
+        # The main polling loop and Flask write endpoint run on different
+        # threads. The RC522 driver cannot safely handle both concurrently.
+        self._io_lock = threading.RLock()
 
         try:
             self.rfid = RFID(pin_rst=PIN_RFID_RST, bus=0, device=0)
@@ -33,8 +37,13 @@ class Reader:
     def read_tag(self) -> tuple[Optional[str], Optional[str]]:
         """
         Polls for a new RFID tag, returning its UID string the first time
-        it is presented. Repeats are ignored until the card is removed.
+        it is presented. Once handled, that UID remains ignored until a
+        different tag is presented, even if an intermediate poll misses it.
         """
+        with self._io_lock:
+            return self._read_tag_unlocked()
+
+    def _read_tag_unlocked(self) -> tuple[Optional[str], Optional[str]]:
         if not self.rfid:
             return None, None
 
@@ -56,11 +65,6 @@ class Reader:
             text_payload = self._read_ndef_text(uid_bytes)
 
             return uid_str, text_payload
-
-        if not uid_str:
-            if self.last_uid is not None:
-                print("RFID: Tag removed from reader")
-            self.last_uid = None
 
         return None, None
 
@@ -196,6 +200,10 @@ class Reader:
         Returns:
             True if write was successful, False otherwise
         """
+        with self._io_lock:
+            return self._write_text_unlocked(text, lang_code)
+
+    def _write_text_unlocked(self, text: str, lang_code: str = "en") -> bool:
         if not self.rfid:
             print("RFID: No RFID reader available")
             return False

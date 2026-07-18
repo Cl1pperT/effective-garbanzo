@@ -1,0 +1,8 @@
+// Allow the user running the Tonie player to manage saved system Wi-Fi profiles.
+// @PLAYER_USER@ is replaced by scripts/install-network-permissions.sh.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.NetworkManager.settings.modify.system" &&
+            subject.user == "@PLAYER_USER@") {
+        return polkit.Result.YES;
+    }
+});
