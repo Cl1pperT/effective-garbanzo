@@ -12,6 +12,7 @@ A Raspberry Pi-based RFID-triggered audio player with web interface for remote c
   - Track navigation (next/previous)
   - Media file management (upload, delete)
   - Folder organization
+  - Write folder names to RFID tags
   - Save additional Wi-Fi networks for automatic connection
   - Mobile-friendly design
 
@@ -50,19 +51,29 @@ python scripts/set-parental-password.py
 The password is stored as a one-way hash in a private local file. Restart the
 player after changing it. Successful website logins remain valid for 15 minutes.
 
-4. Configure your RFID-to-media mappings in `src/rfid_audio_player/config.py`:
-```python
-RFID_MEDIA_MAP = {
-    '1364185516': 'Spiderman',  # Maps to media/Spiderman/
-    '987123456': 'album-B',     # Maps to media/album-B/
-}
-```
-
-5. Create your media folders and add audio files:
+4. Create your media folders and add audio files:
 ```bash
 mkdir -p media/Spiderman
 # Add .mp3, .ogg, or .wav files to the folder
 ```
+
+Folders are scanned each time a tag is presented, so audio files added later are
+picked up without restarting the player.
+
+5. Write a tag for each folder. There is no tag-to-folder mapping in any config
+file — each tag carries its target folder name on itself, stored as an NDEF text
+record. Start the player, open the web interface (see below), choose the folder in
+the NFC section, hold a tag against the reader, and write it.
+
+The text on the tag must match a folder name under `media/` exactly. A tag whose
+text has no matching folder, or a tag with no text record at all, plays the error
+charm and loads nothing. The tag's UID is used only to notice that a *new* tag has
+been presented; it plays no part in choosing what to play, so tags are
+interchangeable and can be rewritten at any time.
+
+One payload is reserved: a tag written with the text `IP` makes the player speak
+its own IP address aloud instead of loading a playlist, which helps when mDNS is
+unavailable.
 
 ## Usage
 
@@ -112,11 +123,11 @@ sudo ./scripts/install-friendly-url.sh storybox
    - Create new media folders
    - Upload audio files
    - Delete files and folders
-   - View which folders are mapped to RFID tags
+   - Write a folder name to an RFID tag
 
 ### RFID Tag Usage
 
-1. Scan an RFID tag mapped in `config.py`
+1. Scan a tag whose text record names a folder under `media/`
 2. The player will automatically load and shuffle all audio files from the corresponding folder
 3. Music starts playing immediately
 4. Tracks auto-advance when finished
@@ -136,10 +147,13 @@ Customize these in `src/rfid_audio_player/config.py`.
 
 Edit `src/rfid_audio_player/config.py` to customize:
 - GPIO pin assignments
-- RFID tag to folder mappings
 - Default volume level
 - Media folder path
 - Supported audio formats
+- Which tag pages hold the NDEF record (`TAG_NDEF_START_PAGE`, `TAG_NDEF_PAGE_COUNT`)
+
+Tag-to-folder assignments are not configured here — they live on the tags
+themselves. See step 5 of the installation instructions.
 
 ## File Structure
 
@@ -150,21 +164,24 @@ effective-garbanzo/
 │   └── rfid_audio_player/          # Core package
 │       ├── __init__.py
 │       ├── audio_player.py         # Audio playback logic (pygame)
-│       ├── rfid_reader.py          # RFID tag reading
+│       ├── rfid_reader.py          # RFID tag reading and NDEF read/write
 │       ├── button_handler.py       # GPIO button event handlers
 │       ├── web_server.py           # Flask web server
+│       ├── network_manager.py      # Wi-Fi network management (nmcli)
+│       ├── parental_auth.py        # Parental password hashing and sessions
 │       └── config.py               # Configuration settings
 ├── scripts/                        # Utility scripts
-│   ├── diagnose_tag.py             # RFID tag diagnostic tool
-│   └── write_tag.py                # RFID tag writing utility
+│   ├── set-parental-password.py    # Set the parental password hash
+│   ├── write_hello_world.py        # RFID tag writing test utility
+│   ├── install-friendly-url.sh     # Serve the UI on port 80
+│   └── install-network-permissions.sh  # Grant nmcli PolicyKit permission
 ├── tests/                          # Unit tests
-│   ├── __init__.py
-│   ├── test_audio_player.py
-│   ├── test_button_handler.py
-│   ├── test_config.py
-│   └── test_rfid_reader.py
+│   ├── test_network_manager.py
+│   └── test_parental_auth.py
 ├── static/                         # Web interface files
 │   └── index.html                  # Web UI
+├── systemd/                        # Service unit for running at boot
+├── polkit/                         # PolicyKit rule for network changes
 ├── media/                          # Media files (not in git)
 │   ├── Spiderman/
 │   └── album-B/
@@ -183,12 +200,22 @@ The web server provides the following REST API endpoints:
 - `POST /api/next` - Next track
 - `POST /api/prev` - Previous track
 - `POST /api/volume` - Set volume (0-100)
+- `POST /api/seek` - Seek within the current track
 - `GET /api/media/folders` - List media folders
 - `POST /api/media/folders` - Create new folder
 - `DELETE /api/media/folders/<name>` - Delete folder
 - `GET /api/media/folders/<name>/files` - List files in folder
 - `POST /api/media/folders/<name>/upload` - Upload file
+- `POST /api/media/folders/<name>/play` - Load and play a folder
 - `DELETE /api/media/folders/<name>/files/<filename>` - Delete file
+- `POST /api/media/convert` - Convert unsupported files to MP3
+- `POST /api/nfc/write` - Write a text payload to a tag on the reader
+- `GET /api/parental-auth` - Check parental login status
+- `POST /api/parental-auth/login` - Log in with the parental password
+- `POST /api/parental-auth/logout` - End the parental session
+- `GET /api/parental-controls` - Read parental settings
+- `POST /api/parental-controls` - Update parental settings
+- `POST /api/parental-controls/sleep-timer` - Set the sleep timer
 - `GET /api/networks` - List saved Wi-Fi network names
 - `POST /api/networks` - Save a WPA/WPA2 Wi-Fi network
 - `DELETE /api/networks` - Forget a saved Wi-Fi network
@@ -219,14 +246,14 @@ network. Ensure NetworkManager is the active networking service.
 
 ## Running Tests
 
-The project includes a comprehensive test suite. To run the tests:
+Unit tests cover network management and parental authentication. To run them:
 
 ```bash
 # Run all tests
 python -m unittest discover tests
 
 # Run a specific test file
-python -m unittest tests.test_audio_player
+python -m unittest tests.test_parental_auth
 
 # Run with verbose output
 python -m unittest discover tests -v
